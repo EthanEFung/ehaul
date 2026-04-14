@@ -1,0 +1,9 @@
+# OAuth client credentials — never commit.
+.credentials
+
+# Built binary
+/mail
+
+# Go artifacts
+*.test
+*.out
