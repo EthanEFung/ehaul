@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -38,14 +39,19 @@ func main() {
 }
 
 func usage(w *os.File) {
-	fmt.Fprintln(w, "usage: mail list <email>")
+	fmt.Fprintln(w, "usage: mail list [--unread] <email>")
 }
 
 func runList(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("missing email argument\nusage: mail list <email>")
+	fs := flag.NewFlagSet("mail list", flag.ContinueOnError)
+	unread := fs.Bool("unread", false, "show only unread messages")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
-	email := strings.TrimSpace(args[0])
+	if fs.NArg() < 1 {
+		return fmt.Errorf("missing email argument\nusage: mail list [--unread] <email>")
+	}
+	email := strings.TrimSpace(fs.Arg(0))
 
 	prov, err := provider.Lookup(email)
 	if err != nil {
@@ -60,7 +66,7 @@ func runList(args []string) error {
 		return err
 	}
 
-	headers, err := mailer.ListInbox(ctx, email, prov, tok, defaultLimit)
+	headers, err := mailer.ListInbox(ctx, email, prov, tok, defaultLimit, *unread)
 	if err != nil {
 		return err
 	}

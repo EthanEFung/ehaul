@@ -26,8 +26,9 @@ type Header struct {
 
 // ListInbox dials the provider's IMAP server over TLS, authenticates with
 // XOAUTH2, selects INBOX, and returns the most recent `limit` headers ordered
-// newest first. It respects the deadline on ctx.
-func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit int) ([]Header, error) {
+// newest first. When unread is true, only messages without the \Seen flag are
+// returned. It respects the deadline on ctx.
+func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit int, unread bool) ([]Header, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -63,23 +64,47 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 		return nil, nil
 	}
 
-	to := sel.NumMessages
-	from := uint32(1)
-	if to > uint32(limit) {
-		from = to - uint32(limit) + 1
-	}
-	var seqSet imap.SeqSet
-	seqSet.AddRange(from, to)
-
 	opts := &imap.FetchOptions{
 		UID:          true,
 		Envelope:     true,
 		InternalDate: true,
 	}
 
-	msgs, err := client.Fetch(seqSet, opts).Collect()
-	if err != nil {
-		return nil, fmt.Errorf("fetch headers: %w", err)
+	var msgs []*imapclient.FetchMessageBuffer
+	if unread {
+		criteria := &imap.SearchCriteria{
+			NotFlag: []imap.Flag{imap.FlagSeen},
+		}
+		searchData, err := client.UIDSearch(criteria, nil).Wait()
+		if err != nil {
+			return nil, fmt.Errorf("uid search: %w", err)
+		}
+		uids := searchData.AllUIDs()
+		if len(uids) == 0 {
+			return nil, nil
+		}
+		// Sort descending (highest UID ≈ most recent) and take the first `limit`.
+		sort.Slice(uids, func(i, j int) bool { return uids[i] > uids[j] })
+		if len(uids) > limit {
+			uids = uids[:limit]
+		}
+		uidSet := imap.UIDSetNum(uids...)
+		msgs, err = client.Fetch(uidSet, opts).Collect()
+		if err != nil {
+			return nil, fmt.Errorf("fetch headers: %w", err)
+		}
+	} else {
+		to := sel.NumMessages
+		from := uint32(1)
+		if to > uint32(limit) {
+			from = to - uint32(limit) + 1
+		}
+		var seqSet imap.SeqSet
+		seqSet.AddRange(from, to)
+		msgs, err = client.Fetch(seqSet, opts).Collect()
+		if err != nil {
+			return nil, fmt.Errorf("fetch headers: %w", err)
+		}
 	}
 
 	out := make([]Header, 0, len(msgs))
