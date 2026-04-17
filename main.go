@@ -13,8 +13,6 @@ import (
 	"github.com/ethanefung/mail/internal/provider"
 )
 
-const defaultLimit = 20
-
 func main() {
 	// Fail fast on a misbuilt binary.
 	_, _ = auth.MustLoad()
@@ -39,17 +37,25 @@ func main() {
 }
 
 func usage(w *os.File) {
-	fmt.Fprintln(w, "usage: mail list [--unread] <email>")
+	fmt.Fprintln(w, "usage: mail list [--unread] [--limit=N] [--page=N] <email>")
 }
 
 func runList(args []string) error {
 	fs := flag.NewFlagSet("mail list", flag.ContinueOnError)
 	unread := fs.Bool("unread", false, "show only unread messages")
+	limit := fs.Int("limit", 20, "number of messages per page")
+	page := fs.Int("page", 1, "page number (1-indexed)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	if *limit < 1 {
+		return fmt.Errorf("--limit must be >= 1")
+	}
+	if *page < 1 {
+		return fmt.Errorf("--page must be >= 1")
+	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("missing email argument\nusage: mail list [--unread] <email>")
+		return fmt.Errorf("missing email argument\nusage: mail list [--unread] [--limit=N] [--page=N] <email>")
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
@@ -66,7 +72,7 @@ func runList(args []string) error {
 		return err
 	}
 
-	headers, err := mailer.ListInbox(ctx, email, prov, tok, defaultLimit, *unread)
+	headers, err := mailer.ListInbox(ctx, email, prov, tok, *limit, *page, *unread)
 	if err != nil {
 		return err
 	}

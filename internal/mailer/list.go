@@ -25,11 +25,12 @@ type Header struct {
 }
 
 // ListInbox dials the provider's IMAP server over TLS, authenticates with
-// XOAUTH2, selects INBOX, and returns the most recent `limit` headers ordered
-// newest first. When unread is true, only messages without the \Seen flag are
-// returned. It respects the deadline on ctx.
-func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit int, unread bool) ([]Header, error) {
-	if limit <= 0 {
+// XOAUTH2, selects INBOX, and returns `limit` headers from the given page
+// ordered newest first. Page is 1-indexed: page 1 is the most recent `limit`
+// messages, page 2 is the next older batch, etc. When unread is true, only
+// messages without the \Seen flag are returned. It respects the deadline on ctx.
+func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit, page int, unread bool) ([]Header, error) {
+	if limit <= 0 || page <= 0 {
 		return nil, nil
 	}
 
@@ -83,24 +84,30 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 		if len(uids) == 0 {
 			return nil, nil
 		}
-		// Sort descending (highest UID ≈ most recent) and take the first `limit`.
+		// Sort descending (highest UID ≈ most recent) and paginate.
 		sort.Slice(uids, func(i, j int) bool { return uids[i] > uids[j] })
-		if len(uids) > limit {
-			uids = uids[:limit]
+		offset := (page - 1) * limit
+		if offset >= len(uids) {
+			return nil, nil
 		}
+		end := offset + limit
+		if end > len(uids) {
+			end = len(uids)
+		}
+		uids = uids[offset:end]
 		uidSet := imap.UIDSetNum(uids...)
 		msgs, err = client.Fetch(uidSet, opts).Collect()
 		if err != nil {
 			return nil, fmt.Errorf("fetch headers: %w", err)
 		}
 	} else {
-		to := sel.NumMessages
-		from := uint32(1)
-		if to > uint32(limit) {
-			from = to - uint32(limit) + 1
+		to := int(sel.NumMessages) - (page-1)*limit
+		if to < 1 {
+			return nil, nil
 		}
+		from := max(1, to-limit+1)
 		var seqSet imap.SeqSet
-		seqSet.AddRange(from, to)
+		seqSet.AddRange(uint32(from), uint32(to))
 		msgs, err = client.Fetch(seqSet, opts).Collect()
 		if err != nil {
 			return nil, fmt.Errorf("fetch headers: %w", err)
