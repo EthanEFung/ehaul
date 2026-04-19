@@ -29,15 +29,15 @@ type Header struct {
 // ordered newest first. Page is 1-indexed: page 1 is the most recent `limit`
 // messages, page 2 is the next older batch, etc. When unread is true, only
 // messages without the \Seen flag are returned. It respects the deadline on ctx.
-func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit, page int, unread bool) ([]Header, error) {
+func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *oauth2.Token, limit, page int, unread bool) ([]Header, uint32, error) {
 	if limit <= 0 || page <= 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	addr := fmt.Sprintf("%s:%d", prov.IMAPHost, prov.IMAPPort)
 	client, err := imapclient.DialTLS(addr, nil)
 	if err != nil {
-		return nil, fmt.Errorf("dial %s: %w", addr, err)
+		return nil, 0, fmt.Errorf("dial %s: %w", addr, err)
 	}
 	defer client.Close()
 
@@ -53,16 +53,16 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 	}()
 
 	if err := client.Authenticate(auth.NewXOAUTH2Client(email, tok.AccessToken)); err != nil {
-		return nil, fmt.Errorf("imap authenticate: %w", err)
+		return nil, 0, fmt.Errorf("imap authenticate: %w", err)
 	}
 	defer func() { _ = client.Logout().Wait() }()
 
 	sel, err := client.Select("INBOX", nil).Wait()
 	if err != nil {
-		return nil, fmt.Errorf("select INBOX: %w", err)
+		return nil, 0, fmt.Errorf("select INBOX: %w", err)
 	}
 	if sel.NumMessages == 0 {
-		return nil, nil
+		return nil, sel.UIDValidity, nil
 	}
 
 	opts := &imap.FetchOptions{
@@ -78,17 +78,17 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 		}
 		searchData, err := client.UIDSearch(criteria, nil).Wait()
 		if err != nil {
-			return nil, fmt.Errorf("uid search: %w", err)
+			return nil, 0, fmt.Errorf("uid search: %w", err)
 		}
 		uids := searchData.AllUIDs()
 		if len(uids) == 0 {
-			return nil, nil
+			return nil, sel.UIDValidity, nil
 		}
 		// Sort descending (highest UID ≈ most recent) and paginate.
 		sort.Slice(uids, func(i, j int) bool { return uids[i] > uids[j] })
 		offset := (page - 1) * limit
 		if offset >= len(uids) {
-			return nil, nil
+			return nil, sel.UIDValidity, nil
 		}
 		end := offset + limit
 		if end > len(uids) {
@@ -98,19 +98,19 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 		uidSet := imap.UIDSetNum(uids...)
 		msgs, err = client.Fetch(uidSet, opts).Collect()
 		if err != nil {
-			return nil, fmt.Errorf("fetch headers: %w", err)
+			return nil, 0, fmt.Errorf("fetch headers: %w", err)
 		}
 	} else {
 		to := int(sel.NumMessages) - (page-1)*limit
 		if to < 1 {
-			return nil, nil
+			return nil, sel.UIDValidity, nil
 		}
 		from := max(1, to-limit+1)
 		var seqSet imap.SeqSet
 		seqSet.AddRange(uint32(from), uint32(to))
 		msgs, err = client.Fetch(seqSet, opts).Collect()
 		if err != nil {
-			return nil, fmt.Errorf("fetch headers: %w", err)
+			return nil, 0, fmt.Errorf("fetch headers: %w", err)
 		}
 	}
 
@@ -131,7 +131,7 @@ func ListInbox(ctx context.Context, email string, prov *provider.Provider, tok *
 
 	// Newest first by server arrival time.
 	sort.Slice(out, func(i, j int) bool { return out[i].Date.After(out[j].Date) })
-	return out, nil
+	return out, sel.UIDValidity, nil
 }
 
 // formatFrom returns the display name when present, else the bare email.

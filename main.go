@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethanefung/mail/internal/auth"
+	"github.com/ethanefung/mail/internal/cache"
 	"github.com/ethanefung/mail/internal/mailer"
 	"github.com/ethanefung/mail/internal/provider"
 )
@@ -64,6 +65,11 @@ func runList(args []string) error {
 		return err
 	}
 
+	cacheDir, cacheDirErr := cache.Dir()
+	if cacheDirErr != nil {
+		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -72,7 +78,7 @@ func runList(args []string) error {
 		return err
 	}
 
-	headers, err := mailer.ListInbox(ctx, email, prov, tok, *limit, *page, *unread)
+	headers, uidValidity, err := mailer.ListInbox(ctx, email, prov, tok, *limit, *page, *unread)
 	if err != nil {
 		return err
 	}
@@ -85,5 +91,12 @@ func runList(args []string) error {
 			h.Date.Format(time.RFC3339),
 		)
 	}
+
+	if uidValidity > 0 && cacheDirErr == nil {
+		if err := cache.SaveUIDValidity(cacheDir, email, "INBOX", uidValidity); err != nil {
+			fmt.Fprintf(os.Stderr, "mail: warning: save uidvalidity: %v\n", err)
+		}
+	}
+
 	return nil
 }
