@@ -5,8 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/emersion/go-imap/v2"
 
 	"github.com/ethanefung/mail/internal/auth"
 	"github.com/ethanefung/mail/internal/cache"
@@ -28,6 +31,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "mail:", err)
 			os.Exit(1)
 		}
+	case "flag":
+		if err := runFlag(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "mail:", err)
+			os.Exit(1)
+		}
 	case "-h", "--help", "help":
 		usage(os.Stdout)
 	default:
@@ -39,6 +47,7 @@ func main() {
 
 func usage(w *os.File) {
 	fmt.Fprintln(w, "usage: mail list [--unread] [--limit=N] [--page=N] <email>")
+	fmt.Fprintln(w, "       mail flag <email> <operation> <flag> <uid...>")
 }
 
 func runList(args []string) error {
@@ -97,6 +106,98 @@ func runList(args []string) error {
 			fmt.Fprintf(os.Stderr, "mail: warning: save uidvalidity: %v\n", err)
 		}
 	}
+
+	return nil
+}
+
+func runFlag(args []string) error {
+	fs := flag.NewFlagSet("mail flag", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() < 4 {
+		return fmt.Errorf("not enough arguments\nusage: mail flag <email> <operation> <flag> <uid...>")
+	}
+
+	email := strings.TrimSpace(fs.Arg(0))
+	op := fs.Arg(1)
+	flagAlias := fs.Arg(2)
+
+	// Validate operation before any network call.
+	switch op {
+	case "add", "rm", "remove", "set":
+	default:
+		return fmt.Errorf("unknown operation %q (must be add, rm, remove, or set)", op)
+	}
+
+	// Parse UID arguments.
+	uidArgs := fs.Args()[3:]
+	uids := make([]imap.UID, 0, len(uidArgs))
+	for _, arg := range uidArgs {
+		n, err := strconv.ParseUint(arg, 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid UID %q: %w", arg, err)
+		}
+		if n == 0 {
+			return fmt.Errorf("invalid UID %q: IMAP UIDs must be greater than 0", arg)
+		}
+		uids = append(uids, imap.UID(uint32(n)))
+	}
+
+	imapFlag := mailer.ResolveFlag(flagAlias)
+
+	prov, err := provider.Lookup(email)
+	if err != nil {
+		return err
+	}
+
+	cacheDir, cacheDirErr := cache.Dir()
+	if cacheDirErr != nil {
+		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+	}
+
+	var cachedValidity uint32
+	var cachedOK bool
+	if cacheDirErr == nil {
+		var loadErr error
+		cachedValidity, cachedOK, loadErr = cache.LoadUIDValidity(cacheDir, email, "INBOX")
+		if loadErr != nil {
+			fmt.Fprintf(os.Stderr, "mail: warning: load uidvalidity: %v\n", loadErr)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	tok, err := auth.GetToken(ctx, email, prov)
+	if err != nil {
+		return err
+	}
+
+	if err := mailer.FlagMessages(ctx, &mailer.FlagParams{
+		Email:          email,
+		Provider:       prov,
+		Token:          tok,
+		Op:             op,
+		Flag:           imapFlag,
+		UIDs:           uids,
+		CachedValidity: cachedValidity,
+		CachedOK:       cachedOK,
+	}); err != nil {
+		return err
+	}
+
+	// Confirmation to stdout.
+	var displayOp string
+	switch op {
+	case "add":
+		displayOp = "added"
+	case "rm", "remove":
+		displayOp = "removed"
+	case "set":
+		displayOp = "set"
+	}
+	fmt.Printf("%s %s on %d message(s)\n", displayOp, flagAlias, len(uids))
 
 	return nil
 }
