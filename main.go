@@ -51,7 +51,7 @@ func main() {
 }
 
 func usage(w *os.File) {
-	fmt.Fprintln(w, "usage: mail list [--unread] [--limit=N] [--page=N] <email>")
+	fmt.Fprintln(w, "usage: mail list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
 	fmt.Fprintln(w, "       mail flag <email> <operation> <flag> <uid...>")
 	fmt.Fprintln(w, "       mail folders <email>")
 }
@@ -59,6 +59,7 @@ func usage(w *os.File) {
 func runList(args []string) error {
 	fs := flag.NewFlagSet("mail list", flag.ContinueOnError)
 	unread := fs.Bool("unread", false, "show only unread messages")
+	gmSearch := fs.String("gm-search", "", "Gmail search query (X-GM-RAW syntax)")
 	limit := fs.Int("limit", 20, "number of messages per page")
 	page := fs.Int("page", 1, "page number (1-indexed)")
 	if err := fs.Parse(args); err != nil {
@@ -70,8 +71,11 @@ func runList(args []string) error {
 	if *page < 1 {
 		return fmt.Errorf("--page must be >= 1")
 	}
+	if *gmSearch != "" && *unread {
+		return fmt.Errorf("--gm-search and --unread are mutually exclusive")
+	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("missing email argument\nusage: mail list [--unread] [--limit=N] [--page=N] <email>")
+		return fmt.Errorf("missing email argument\nusage: mail list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
@@ -93,7 +97,13 @@ func runList(args []string) error {
 		return err
 	}
 
-	headers, uidValidity, err := mailer.ListInbox(ctx, email, prov, tok, *limit, *page, *unread)
+	var headers []mailer.Header
+	var uidValidity uint32
+	if *gmSearch != "" {
+		headers, uidValidity, err = mailer.GmailSearch(ctx, email, prov, tok, *gmSearch, *limit, *page)
+	} else {
+		headers, uidValidity, err = mailer.ListInbox(ctx, email, prov, tok, *limit, *page, *unread)
+	}
 	if err != nil {
 		return err
 	}
