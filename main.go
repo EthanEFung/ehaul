@@ -36,6 +36,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "mail:", err)
 			os.Exit(1)
 		}
+	case "folders":
+		if err := runFolders(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "mail:", err)
+			os.Exit(1)
+		}
 	case "-h", "--help", "help":
 		usage(os.Stdout)
 	default:
@@ -48,6 +53,7 @@ func main() {
 func usage(w *os.File) {
 	fmt.Fprintln(w, "usage: mail list [--unread] [--limit=N] [--page=N] <email>")
 	fmt.Fprintln(w, "       mail flag <email> <operation> <flag> <uid...>")
+	fmt.Fprintln(w, "       mail folders <email>")
 }
 
 func runList(args []string) error {
@@ -198,6 +204,45 @@ func runFlag(args []string) error {
 		displayOp = "set"
 	}
 	fmt.Printf("%s %s on %d message(s)\n", displayOp, flagAlias, len(uids))
+
+	return nil
+}
+
+func runFolders(args []string) error {
+	fs := flag.NewFlagSet("mail folders", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("expected exactly one argument\nusage: mail folders <email>")
+	}
+	email := strings.TrimSpace(fs.Arg(0))
+
+	prov, err := provider.Lookup(email)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	tok, err := auth.GetToken(ctx, email, prov)
+	if err != nil {
+		return err
+	}
+
+	folders, err := mailer.ListFolders(ctx, email, prov, tok)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range folders {
+		if len(f.Attrs) == 0 {
+			fmt.Println(f.Name)
+		} else {
+			fmt.Printf("%s\t(%s)\n", f.Name, strings.Join(f.Attrs, " "))
+		}
+	}
 
 	return nil
 }
