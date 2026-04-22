@@ -36,6 +36,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "mail:", err)
 			os.Exit(1)
 		}
+	case "move":
+		if err := runMove(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "mail:", err)
+			os.Exit(1)
+		}
 	case "folders":
 		if err := runFolders(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, "mail:", err)
@@ -53,6 +58,7 @@ func main() {
 func usage(w *os.File) {
 	fmt.Fprintln(w, "usage: mail list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
 	fmt.Fprintln(w, "       mail flag <email> <operation> <flag> <uid...>")
+	fmt.Fprintln(w, "       mail move <email> <destination-mailbox> <uid...>")
 	fmt.Fprintln(w, "       mail folders <email>")
 }
 
@@ -214,6 +220,80 @@ func runFlag(args []string) error {
 		displayOp = "set"
 	}
 	fmt.Printf("%s %s on %d message(s)\n", displayOp, flagAlias, len(uids))
+
+	return nil
+}
+
+func runMove(args []string) error {
+	fs := flag.NewFlagSet("mail move", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() < 3 {
+		return fmt.Errorf("not enough arguments\nusage: mail move <email> <destination-mailbox> <uid...>")
+	}
+
+	email := strings.TrimSpace(fs.Arg(0))
+	destination := strings.TrimSpace(fs.Arg(1))
+	if destination == "" {
+		return fmt.Errorf("destination mailbox must not be empty")
+	}
+
+	uidArgs := fs.Args()[2:]
+	uids := make([]imap.UID, 0, len(uidArgs))
+	for _, arg := range uidArgs {
+		arg = strings.TrimSpace(arg)
+		n, err := strconv.ParseUint(arg, 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid UID %q: %w", arg, err)
+		}
+		if n == 0 {
+			return fmt.Errorf("invalid UID %q: IMAP UIDs must be greater than 0", arg)
+		}
+		uids = append(uids, imap.UID(uint32(n)))
+	}
+
+	prov, err := provider.Lookup(email)
+	if err != nil {
+		return err
+	}
+
+	cacheDir, cacheDirErr := cache.Dir()
+	if cacheDirErr != nil {
+		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+	}
+
+	var cachedValidity uint32
+	var cachedOK bool
+	if cacheDirErr == nil {
+		var loadErr error
+		cachedValidity, cachedOK, loadErr = cache.LoadUIDValidity(cacheDir, email, "INBOX")
+		if loadErr != nil {
+			fmt.Fprintf(os.Stderr, "mail: warning: load uidvalidity: %v\n", loadErr)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	tok, err := auth.GetToken(ctx, email, prov)
+	if err != nil {
+		return err
+	}
+
+	if err := mailer.MoveMessages(ctx, &mailer.MoveParams{
+		Email:          email,
+		Provider:       prov,
+		Token:          tok,
+		Destination:    destination,
+		UIDs:           uids,
+		CachedValidity: cachedValidity,
+		CachedOK:       cachedOK,
+	}); err != nil {
+		return err
+	}
+
+	fmt.Printf("moved %d message(s) to %s\n", len(uids), destination)
 
 	return nil
 }
