@@ -8,8 +8,8 @@ import (
 	"github.com/emersion/go-imap/v2/imapclient"
 	"golang.org/x/oauth2"
 
-	"github.com/ethanefung/mail/internal/auth"
-	"github.com/ethanefung/mail/internal/provider"
+	"github.com/ethanefung/ehaul/internal/auth"
+	"github.com/ethanefung/ehaul/internal/provider"
 )
 
 // Folder represents a single IMAP mailbox returned by the LIST command.

@@ -12,7 +12,7 @@ import (
 
 // keyringService is the fixed service name used for all entries this binary
 // writes to the OS keyring.
-const keyringService = "mail"
+const keyringService = "ehaul"
 
 // storedToken is the on-disk (keyring) representation of an oauth2.Token.
 // Only the fields we actually need are persisted.

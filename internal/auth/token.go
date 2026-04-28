@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/ethanefung/mail/internal/provider"
+	"github.com/ethanefung/ehaul/internal/provider"
 )
 
 // GetToken returns a usable access token for email. It checks the keyring

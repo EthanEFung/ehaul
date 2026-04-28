@@ -8,7 +8,7 @@ import (
 )
 
 // clientID and clientSecret are populated at build time via
-// `go build -ldflags "-X github.com/ethanefung/mail/internal/auth.clientID=... -X github.com/ethanefung/mail/internal/auth.clientSecret=..."`.
+// `go build -ldflags "-X github.com/ethanefung/ehaul/internal/auth.clientID=... -X github.com/ethanefung/ehaul/internal/auth.clientSecret=..."`.
 // They remain empty when built without the Makefile.
 var (
 	clientID     string
@@ -21,7 +21,7 @@ var (
 // fails immediately rather than part-way through a user flow.
 func MustLoad() (id, secret string) {
 	if clientID == "" || clientSecret == "" {
-		fmt.Fprintln(os.Stderr, "mail: OAuth client credentials are not set.")
+		fmt.Fprintln(os.Stderr, "ehaul: OAuth client credentials are not set.")
 		fmt.Fprintln(os.Stderr, "      Populate .credentials with GMAIL_CLIENT_ID and")
 		fmt.Fprintln(os.Stderr, "      GMAIL_CLIENT_SECRET, then re-run `make build`.")
 		os.Exit(1)

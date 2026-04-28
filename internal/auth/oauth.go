@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/ethanefung/mail/internal/provider"
+	"github.com/ethanefung/ehaul/internal/provider"
 )
 
 // BrowserFlow runs the OAuth 2.0 installed-app loopback flow: it starts a
@@ -132,7 +132,7 @@ func openBrowser(url string) error {
 }
 
 const successHTML = `<!doctype html>
-<html><head><meta charset="utf-8"><title>mail</title></head>
+<html><head><meta charset="utf-8"><title>ehaul</title></head>
 <body style="font-family:-apple-system,system-ui,sans-serif;text-align:center;padding:4em;">
 <h2>Authenticated.</h2>
 <p>You can close this tab.</p>

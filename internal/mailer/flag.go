@@ -8,8 +8,8 @@ import (
 	"github.com/emersion/go-imap/v2/imapclient"
 	"golang.org/x/oauth2"
 
-	"github.com/ethanefung/mail/internal/auth"
-	"github.com/ethanefung/mail/internal/provider"
+	"github.com/ethanefung/ehaul/internal/auth"
+	"github.com/ethanefung/ehaul/internal/provider"
 )
 
 // aliasToFlag maps human-readable aliases to IMAP system flags.
@@ -80,7 +80,7 @@ func FlagMessages(ctx context.Context, p *FlagParams) error {
 
 	// UIDVALIDITY check (closes KG-4).
 	if p.CachedOK && p.CachedValidity != sel.UIDValidity {
-		return fmt.Errorf("UIDVALIDITY changed (cached %d, server %d); UIDs may be stale — re-run 'mail list' to refresh",
+		return fmt.Errorf("UIDVALIDITY changed (cached %d, server %d); UIDs may be stale — re-run 'ehaul list' to refresh",
 			p.CachedValidity, sel.UIDValidity)
 	}
 

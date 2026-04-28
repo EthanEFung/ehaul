@@ -12,13 +12,13 @@ import (
 )
 
 // Dir returns the platform-appropriate cache directory for this application.
-// On macOS: ~/Library/Caches/mail. On Linux: ~/.cache/mail (or $XDG_CACHE_HOME/mail).
+// On macOS: ~/Library/Caches/ehaul. On Linux: ~/.cache/ehaul (or $XDG_CACHE_HOME/ehaul).
 func Dir() (string, error) {
 	base, err := os.UserCacheDir()
 	if err != nil {
 		return "", fmt.Errorf("cache dir: %w", err)
 	}
-	return filepath.Join(base, "mail"), nil
+	return filepath.Join(base, "ehaul"), nil
 }
 
 // SaveUIDValidity writes the UIDVALIDITY value to <cacheDir>/<email>/<mailbox>.

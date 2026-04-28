@@ -11,10 +11,10 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 
-	"github.com/ethanefung/mail/internal/auth"
-	"github.com/ethanefung/mail/internal/cache"
-	"github.com/ethanefung/mail/internal/mailer"
-	"github.com/ethanefung/mail/internal/provider"
+	"github.com/ethanefung/ehaul/internal/auth"
+	"github.com/ethanefung/ehaul/internal/cache"
+	"github.com/ethanefung/ehaul/internal/mailer"
+	"github.com/ethanefung/ehaul/internal/provider"
 )
 
 func main() {
@@ -28,42 +28,42 @@ func main() {
 	switch os.Args[1] {
 	case "list":
 		if err := runList(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "mail:", err)
+			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "flag":
 		if err := runFlag(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "mail:", err)
+			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "move":
 		if err := runMove(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "mail:", err)
+			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "folders":
 		if err := runFolders(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "mail:", err)
+			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "-h", "--help", "help":
 		usage(os.Stdout)
 	default:
-		fmt.Fprintf(os.Stderr, "mail: unknown command %q\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "ehaul: unknown command %q\n", os.Args[1])
 		usage(os.Stderr)
 		os.Exit(2)
 	}
 }
 
 func usage(w *os.File) {
-	fmt.Fprintln(w, "usage: mail list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
-	fmt.Fprintln(w, "       mail flag <email> <operation> <flag> <uid...>")
-	fmt.Fprintln(w, "       mail move <email> <destination-mailbox> <uid...>")
-	fmt.Fprintln(w, "       mail folders <email>")
+	fmt.Fprintln(w, "usage: ehaul list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
+	fmt.Fprintln(w, "       ehaul flag <email> <operation> <flag> <uid...>")
+	fmt.Fprintln(w, "       ehaul move <email> <destination-mailbox> <uid...>")
+	fmt.Fprintln(w, "       ehaul folders <email>")
 }
 
 func runList(args []string) error {
-	fs := flag.NewFlagSet("mail list", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ehaul list", flag.ContinueOnError)
 	unread := fs.Bool("unread", false, "show only unread messages")
 	gmSearch := fs.String("gm-search", "", "Gmail search query (X-GM-RAW syntax)")
 	limit := fs.Int("limit", 20, "number of messages per page")
@@ -81,7 +81,7 @@ func runList(args []string) error {
 		return fmt.Errorf("--gm-search and --unread are mutually exclusive")
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("missing email argument\nusage: mail list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
+		return fmt.Errorf("missing email argument\nusage: ehaul list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
@@ -92,7 +92,7 @@ func runList(args []string) error {
 
 	cacheDir, cacheDirErr := cache.Dir()
 	if cacheDirErr != nil {
-		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+		fmt.Fprintf(os.Stderr, "ehaul: warning: cache dir: %v\n", cacheDirErr)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -125,7 +125,7 @@ func runList(args []string) error {
 
 	if uidValidity > 0 && cacheDirErr == nil {
 		if err := cache.SaveUIDValidity(cacheDir, email, "INBOX", uidValidity); err != nil {
-			fmt.Fprintf(os.Stderr, "mail: warning: save uidvalidity: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ehaul: warning: save uidvalidity: %v\n", err)
 		}
 	}
 
@@ -133,12 +133,12 @@ func runList(args []string) error {
 }
 
 func runFlag(args []string) error {
-	fs := flag.NewFlagSet("mail flag", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ehaul flag", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() < 4 {
-		return fmt.Errorf("not enough arguments\nusage: mail flag <email> <operation> <flag> <uid...>")
+		return fmt.Errorf("not enough arguments\nusage: ehaul flag <email> <operation> <flag> <uid...>")
 	}
 
 	email := strings.TrimSpace(fs.Arg(0))
@@ -175,7 +175,7 @@ func runFlag(args []string) error {
 
 	cacheDir, cacheDirErr := cache.Dir()
 	if cacheDirErr != nil {
-		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+		fmt.Fprintf(os.Stderr, "ehaul: warning: cache dir: %v\n", cacheDirErr)
 	}
 
 	var cachedValidity uint32
@@ -184,7 +184,7 @@ func runFlag(args []string) error {
 		var loadErr error
 		cachedValidity, cachedOK, loadErr = cache.LoadUIDValidity(cacheDir, email, "INBOX")
 		if loadErr != nil {
-			fmt.Fprintf(os.Stderr, "mail: warning: load uidvalidity: %v\n", loadErr)
+			fmt.Fprintf(os.Stderr, "ehaul: warning: load uidvalidity: %v\n", loadErr)
 		}
 	}
 
@@ -225,12 +225,12 @@ func runFlag(args []string) error {
 }
 
 func runMove(args []string) error {
-	fs := flag.NewFlagSet("mail move", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ehaul move", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() < 3 {
-		return fmt.Errorf("not enough arguments\nusage: mail move <email> <destination-mailbox> <uid...>")
+		return fmt.Errorf("not enough arguments\nusage: ehaul move <email> <destination-mailbox> <uid...>")
 	}
 
 	email := strings.TrimSpace(fs.Arg(0))
@@ -260,7 +260,7 @@ func runMove(args []string) error {
 
 	cacheDir, cacheDirErr := cache.Dir()
 	if cacheDirErr != nil {
-		fmt.Fprintf(os.Stderr, "mail: warning: cache dir: %v\n", cacheDirErr)
+		fmt.Fprintf(os.Stderr, "ehaul: warning: cache dir: %v\n", cacheDirErr)
 	}
 
 	var cachedValidity uint32
@@ -269,7 +269,7 @@ func runMove(args []string) error {
 		var loadErr error
 		cachedValidity, cachedOK, loadErr = cache.LoadUIDValidity(cacheDir, email, "INBOX")
 		if loadErr != nil {
-			fmt.Fprintf(os.Stderr, "mail: warning: load uidvalidity: %v\n", loadErr)
+			fmt.Fprintf(os.Stderr, "ehaul: warning: load uidvalidity: %v\n", loadErr)
 		}
 	}
 
@@ -299,12 +299,12 @@ func runMove(args []string) error {
 }
 
 func runFolders(args []string) error {
-	fs := flag.NewFlagSet("mail folders", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ehaul folders", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return fmt.Errorf("expected exactly one argument\nusage: mail folders <email>")
+		return fmt.Errorf("expected exactly one argument\nusage: ehaul folders <email>")
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
