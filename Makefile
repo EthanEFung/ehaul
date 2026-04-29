@@ -17,6 +17,18 @@ build:
 		exit 1; \
 	fi
 	go build -ldflags "$(LDFLAGS)" -o ehaul .
+install:
+	@if [ ! -f .credentials ]; then \
+		echo "ERROR: .credentials not found."; \
+		echo "       Copy .credentials.example to .credentials and populate values."; \
+		exit 1; \
+	fi
+	@if [ -z "$(GMAIL_CLIENT_ID)" ] || [ -z "$(GMAIL_CLIENT_SECRET)" ]; then \
+		echo "ERROR: .credentials is missing GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET."; \
+		exit 1; \
+	fi
+	go install -ldflags "$(LDFLAGS)"
+
 
 clean:
 	rm -f ehaul

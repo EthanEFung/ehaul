@@ -20,10 +20,10 @@ A command-line email client for Gmail over IMAP. Authenticate with OAuth2, then 
 ```sh
 cp .credentials.example .credentials
 # Edit .credentials and fill in GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET
-make build
+make install
 ```
 
-This produces a `./ehaul` binary with the credentials embedded at compile time.
+This produces a `ehaul` binary with the credentials embedded at compile time.
 
 On first run, your browser will open for Google OAuth consent. The resulting token is stored in your OS keyring and refreshed automatically.
 
@@ -73,7 +73,7 @@ ehaul flag <email> <operation> <flag> <uid...>
 ehaul flag user@gmail.com add seen 1234 1235
 
 # Unflag
-ehaul flag user@gmail.com rm flagged 1234
+ehaul flag user@gmail.com rm seen 1234
 ```
 
 ### Move messages
@@ -110,3 +110,5 @@ Prints each mailbox name, with IMAP attributes where present.
 | Provider | Domains |
 |----------|---------|
 | Gmail | `gmail.com`, `googlemail.com` |
+
+Currently looking for contributors to add support for other providers! The main work is implementing the provider-specific authentication flow and any IMAP extensions they require. Please open an issue if you'd like to help out.
