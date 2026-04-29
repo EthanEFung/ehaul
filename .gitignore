@@ -7,3 +7,10 @@
 # Go artifacts
 *.test
 *.out
+
+# Agents begone
+AGENTS.md
+CLAUDE.md
+
+# remove local tmp files
+tmp/*
