@@ -33,6 +33,20 @@ var registry = map[string]*Provider{
 	"googlemail.com": gmail,
 }
 
+var nameRegistry = map[string]*Provider{
+	"gmail": gmail,
+}
+
+// LookupByName returns the Provider registered under the given name.
+// Use this when the caller has an explicit --provider override.
+func LookupByName(name string) (*Provider, error) {
+	p, ok := nameRegistry[strings.ToLower(name)]
+	if !ok {
+		return nil, fmt.Errorf("unknown provider %q", name)
+	}
+	return p, nil
+}
+
 // Lookup returns the Provider for the given email address's domain.
 // Unknown domains yield an error; Google Workspace custom domains are not
 // supported in v1 and will fail here.

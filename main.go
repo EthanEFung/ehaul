@@ -56,14 +56,22 @@ func main() {
 }
 
 func usage(w *os.File) {
-	fmt.Fprintln(w, "usage: ehaul list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
-	fmt.Fprintln(w, "       ehaul flag <email> <operation> <flag> <uid...>")
-	fmt.Fprintln(w, "       ehaul move <email> <destination-mailbox> <uid...>")
-	fmt.Fprintln(w, "       ehaul folders <email>")
+	fmt.Fprintln(w, "usage: ehaul list [--provider=NAME] [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
+	fmt.Fprintln(w, "       ehaul flag [--provider=NAME] <email> <operation> <flag> <uid...>")
+	fmt.Fprintln(w, "       ehaul move [--provider=NAME] <email> <destination-mailbox> <uid...>")
+	fmt.Fprintln(w, "       ehaul folders [--provider=NAME] <email>")
+}
+
+func resolveProvider(email, providerFlag string) (*provider.Provider, error) {
+	if providerFlag != "" {
+		return provider.LookupByName(providerFlag)
+	}
+	return provider.Lookup(email)
 }
 
 func runList(args []string) error {
 	fs := flag.NewFlagSet("ehaul list", flag.ContinueOnError)
+	providerName := fs.String("provider", "", "override provider detection (e.g. gmail)")
 	unread := fs.Bool("unread", false, "show only unread messages")
 	gmSearch := fs.String("gm-search", "", "Gmail search query (X-GM-RAW syntax)")
 	limit := fs.Int("limit", 20, "number of messages per page")
@@ -81,11 +89,11 @@ func runList(args []string) error {
 		return fmt.Errorf("--gm-search and --unread are mutually exclusive")
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("missing email argument\nusage: ehaul list [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
+		return fmt.Errorf("missing email argument\nusage: ehaul list [--provider=NAME] [--unread] [--gm-search=\"<query>\"] [--limit=N] [--page=N] <email>")
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
-	prov, err := provider.Lookup(email)
+	prov, err := resolveProvider(email, *providerName)
 	if err != nil {
 		return err
 	}
@@ -134,6 +142,7 @@ func runList(args []string) error {
 
 func runFlag(args []string) error {
 	fs := flag.NewFlagSet("ehaul flag", flag.ContinueOnError)
+	providerName := fs.String("provider", "", "override provider detection (e.g. gmail)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -168,7 +177,7 @@ func runFlag(args []string) error {
 
 	imapFlag := mailer.ResolveFlag(flagAlias)
 
-	prov, err := provider.Lookup(email)
+	prov, err := resolveProvider(email, *providerName)
 	if err != nil {
 		return err
 	}
@@ -226,6 +235,7 @@ func runFlag(args []string) error {
 
 func runMove(args []string) error {
 	fs := flag.NewFlagSet("ehaul move", flag.ContinueOnError)
+	providerName := fs.String("provider", "", "override provider detection (e.g. gmail)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -253,7 +263,7 @@ func runMove(args []string) error {
 		uids = append(uids, imap.UID(uint32(n)))
 	}
 
-	prov, err := provider.Lookup(email)
+	prov, err := resolveProvider(email, *providerName)
 	if err != nil {
 		return err
 	}
@@ -300,6 +310,7 @@ func runMove(args []string) error {
 
 func runFolders(args []string) error {
 	fs := flag.NewFlagSet("ehaul folders", flag.ContinueOnError)
+	providerName := fs.String("provider", "", "override provider detection (e.g. gmail)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -308,7 +319,7 @@ func runFolders(args []string) error {
 	}
 	email := strings.TrimSpace(fs.Arg(0))
 
-	prov, err := provider.Lookup(email)
+	prov, err := resolveProvider(email, *providerName)
 	if err != nil {
 		return err
 	}
