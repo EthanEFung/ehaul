@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -28,21 +29,33 @@ func main() {
 	switch os.Args[1] {
 	case "list":
 		if err := runList(os.Args[2:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return
+			}
 			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "flag":
 		if err := runFlag(os.Args[2:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return
+			}
 			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "move":
 		if err := runMove(os.Args[2:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return
+			}
 			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
 	case "folders":
 		if err := runFolders(os.Args[2:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return
+			}
 			fmt.Fprintln(os.Stderr, "ehaul:", err)
 			os.Exit(1)
 		}
