@@ -6,20 +6,21 @@ A terminal-native Gmail client built for batch inbox operations. ehaul connects 
 
 ### Prerequisites
 
-- Go 1.25+
 - A Google Cloud project with the Gmail API enabled
+
+Go is only required if building from source.
 
 ### Create OAuth credentials
 
 ehaul uses OAuth2 to access Gmail over IMAP. OAuth2 has three parties: the **provider** (Google), the **application** (ehaul), and the **user** (you). The provider needs to know which application is requesting access, so every application registers itself and receives a **client ID** and **client secret**. These identify the application, not the user.
 
-This project does not ship a shared client ID. Each person who builds ehaul creates their own OAuth application in Google Cloud. This is intentional:
+This project does not ship a shared client ID. Each person who uses ehaul creates their own OAuth application in Google Cloud. This is intentional:
 
 - A client ID/secret pair is an **application identity**. If it were committed to a public repo, anyone could impersonate the application and Google could revoke it.
 - Google enforces **per-application rate limits**. A shared client ID across many users can hit quota walls.
 - Google requires apps that use a shared client ID to go through a **verification review** (privacy policy, homepage, branding check). That process is tied to a single maintainer's account and doesn't make sense for a personal CLI tool.
 
-By creating your own Google Cloud project, you control your own quota, your own consent screen, and your own credentials. The `.credentials` file is gitignored so they never leave your machine.
+By creating your own Google Cloud project, you control your own quota, your own consent screen, and your own credentials.
 
 To create your credentials:
 
@@ -27,15 +28,43 @@ To create your credentials:
 2. Create an OAuth 2.0 Client ID (application type: **Desktop app**)
 3. Copy the Client ID and Client Secret
 
-### Build
+### Install
 
 ```sh
-cp .credentials.example .credentials
-# Edit .credentials and fill in GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET
-make install
+go install github.com/ethanefung/ehaul@latest
 ```
 
-This produces an `ehaul` binary with your credentials embedded at compile time.
+### Configure credentials
+
+Create a credentials file:
+
+```sh
+mkdir -p ~/.config/ehaul
+touch ~/.config/ehaul/credentials
+chmod 600 ~/.config/ehaul/credentials
+```
+
+Add your OAuth client ID and secret:
+
+```
+GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=your-client-secret
+```
+
+The file should be readable only by you (`chmod 600`). ehaul does not enforce permissions, but the file contains secrets that should not be world-readable.
+
+On macOS the path is `~/Library/Application Support/ehaul/credentials`. On Linux it is `~/.config/ehaul/credentials` (or `$XDG_CONFIG_HOME/ehaul/credentials`).
+
+### Environment variables (CI / containers)
+
+For CI pipelines, containers, or other environments where a config file is impractical, set both environment variables instead:
+
+```sh
+export GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
+export GMAIL_CLIENT_SECRET=your-client-secret
+```
+
+When both are set, ehaul uses them and does not read the config file. Environment variables are visible to other processes running as the same user. For interactive use, the config file is the recommended method.
 
 ### First run and the consent screen
 

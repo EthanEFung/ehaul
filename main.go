@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	// Fail fast on a misbuilt binary.
+	// Fail fast if credentials are not configured.
 	_, _ = auth.MustLoad()
 
 	if len(os.Args) < 2 {
