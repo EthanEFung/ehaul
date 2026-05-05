@@ -27,9 +27,6 @@ func GmailSearch(ctx context.Context, email string, prov *provider.Provider, tok
 	if limit <= 0 || page <= 0 {
 		return nil, 0, nil
 	}
-	if strings.Contains(query, "\"") {
-		return nil, 0, fmt.Errorf("--gm-search query must not contain double quotes")
-	}
 	if strings.ContainsAny(query, "\r\n") {
 		return nil, 0, fmt.Errorf("--gm-search query must not contain line breaks")
 	}
@@ -319,9 +316,23 @@ func (c *rawIMAP) selectInbox() error {
 	}
 }
 
+func (c *rawIMAP) writeLiteral(data string) error {
+	line, err := c.readLine()
+	if err != nil {
+		return fmt.Errorf("literal continuation: %w", err)
+	}
+	if !strings.HasPrefix(line, "+") {
+		return fmt.Errorf("expected continuation, got: %s", line)
+	}
+	return c.writeLine(data)
+}
+
 func (c *rawIMAP) uidSearchRaw(query string) ([]imap.UID, error) {
 	tag := c.nextTagString()
-	if err := c.writeLine(fmt.Sprintf("%s UID SEARCH X-GM-RAW \"%s\"", tag, query)); err != nil {
+	if err := c.writeLine(fmt.Sprintf("%s UID SEARCH X-GM-RAW {%d}", tag, len(query))); err != nil {
+		return nil, fmt.Errorf("uid search: %w", err)
+	}
+	if err := c.writeLiteral(query); err != nil {
 		return nil, fmt.Errorf("uid search: %w", err)
 	}
 
