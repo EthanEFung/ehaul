@@ -30,6 +30,20 @@ To create your credentials:
 
 ### Install
 
+#### One-line install (recommended)
+
+```sh
+curl -sSL https://raw.githubusercontent.com/EthanEFung/ehaul/main/install.sh | bash
+```
+
+To install to a custom directory:
+
+```sh
+INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/EthanEFung/ehaul/main/install.sh | bash
+```
+
+#### From source
+
 ```sh
 go install github.com/ethanefung/ehaul@latest
 ```
