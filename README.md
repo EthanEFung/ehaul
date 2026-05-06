@@ -33,10 +33,10 @@ To create your credentials:
 #### One-line install (recommended)
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/EthanEFung/ehaul/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/EthanEFung/ehaul/main/install.sh | sudo bash
 ```
 
-To install to a custom directory:
+To install without `sudo`, use a directory you own:
 
 ```sh
 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/EthanEFung/ehaul/main/install.sh | bash
